@@ -1,26 +1,160 @@
 @import "tailwindcss";
 
+/*
+  Sistema de color del visor clinico.
+
+  La superficie oscura no es una preferencia estetica: el software de
+  radiologia (PACS) usa fondo oscuro porque el rango dinamico de una
+  radiografia se aprecia mucho mejor sin luz alrededor.
+
+  El acento cian se eligio ejecutando el validador de paletas contra esta
+  superficie, no a ojo. El verde azulado que se probo primero (#12a594)
+  quedaba a una distancia de 14,2 del verde de estado, por debajo del minimo
+  de 15 para visos normales; el cian #0891b2 alcanza 21,6 y supera todas las
+  comprobaciones.
+
+  Los colores de estado son fijos y nunca se re-tematizan. Ademas jamas
+  transmiten significado por si solos: siempre acompanados de icono y texto.
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  /* Superficies */
+  --plano: #0a0e14;
+  --panel: #111823;
+  --panel-alto: #17202e;
+  --lienzo: #05080c;
+
+  /* Tinta */
+  --tinta: #e8edf4;
+  --tinta-media: #94a3b8;
+  --tinta-tenue: #64748b;
+
+  /* Bordes */
+  --borde: rgba(255, 255, 255, 0.08);
+  --borde-fuerte: rgba(255, 255, 255, 0.14);
+
+  /* Acento (rampa cian de un solo tono) */
+  --acento: #0891b2;
+  --acento-vivo: #22d3ee;
+  --acento-hondo: #0e7490;
+  --acento-pista: rgba(8, 145, 178, 0.18);
+
+  /* Estado: fijos, nunca tematizados */
+  --estado-bien: #0ca30c;
+  --estado-aviso: #fab219;
+  --estado-serio: #ec835a;
+  --estado-critico: #d03b3b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-plano: var(--plano);
+  --color-panel: var(--panel);
+  --color-panel-alto: var(--panel-alto);
+  --color-lienzo: var(--lienzo);
+  --color-tinta: var(--tinta);
+  --color-tinta-media: var(--tinta-media);
+  --color-tinta-tenue: var(--tinta-tenue);
+  --color-borde: var(--borde);
+  --color-borde-fuerte: var(--borde-fuerte);
+  --color-acento: var(--acento);
+  --color-acento-vivo: var(--acento-vivo);
+  --color-acento-hondo: var(--acento-hondo);
+  --color-estado-bien: var(--estado-bien);
+  --color-estado-aviso: var(--estado-aviso);
+  --color-estado-serio: var(--estado-serio);
+  --color-estado-critico: var(--estado-critico);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  background: var(--plano);
+  color: var(--tinta);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Trama tenue de fondo: da profundidad sin competir con la imagen. */
+.trama-fondo {
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(8, 145, 178, 0.07), transparent 55%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 44px 44px, 44px 44px;
+}
+
+/* Aparicion escalonada de los resultados. */
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.surgir {
+  animation: surgir 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surgir {
+    animation: none;
+  }
+}
+
+/* Barrido del esqueleto de carga. */
+@keyframes barrido {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.esqueleto {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-alto);
+}
+
+.esqueleto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: barrido 1.5s infinite;
+}
+
+/* Al imprimir el informe se invierte a fondo claro: la tinta oscura sobre
+   papel es lo legible, y el visor oscuro desperdiciaria toner. */
+@media print {
+  :root {
+    color-scheme: light;
+    --plano: #ffffff;
+    --panel: #ffffff;
+    --panel-alto: #f4f6f8;
+    --lienzo: #ffffff;
+    --tinta: #0b0b0b;
+    --tinta-media: #45536a;
+    --tinta-tenue: #64748b;
+    --borde: rgba(0, 0, 0, 0.15);
+    --borde-fuerte: rgba(0, 0, 0, 0.25);
+  }
+
+  .sin-imprimir {
+    display: none !important;
+  }
+
+  .trama-fondo {
+    background-image: none;
+  }
 }

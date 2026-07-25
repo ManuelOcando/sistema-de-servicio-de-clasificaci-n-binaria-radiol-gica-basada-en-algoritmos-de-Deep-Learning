@@ -1,24 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import MedidorConfianza from "@/components/MedidorConfianza";
+import PanelModelo from "@/components/PanelModelo";
+import VisorRadiografia from "@/components/VisorRadiografia";
 
 /**
  * Umbral de derivacion a revision humana.
  *
- * Procede del analisis de calibracion del modelo sobre las 900 imagenes de
- * prueba reservadas: ninguno de los 10 errores cometidos supero una confianza
- * de 0,99, de modo que este umbral habria capturado la totalidad de los fallos
+ * Procede del analisis de calibracion sobre las 900 imagenes de prueba
+ * reservadas: ninguno de los 10 errores del modelo supero una confianza de
+ * 0,99, de modo que este umbral habria capturado la totalidad de los fallos
  * revisando solo el 5,8% de los casos.
  */
 const UMBRAL_REVISION = 0.99;
 
 type Respuesta = {
   prediction: { label: string; confidence: number; class_id: number };
-  explainability: {
-    heatmap_base64: string;
-    overlay_base64: string;
-    description: string;
-  };
+  explainability: { heatmap_base64: string; overlay_base64: string; description: string };
   performance: {
     preprocess_time_ms: number;
     inference_time_ms: number;
@@ -31,26 +30,25 @@ type Respuesta = {
 const FORMATOS = ["image/jpeg", "image/png", "image/webp"];
 const TAMANO_MAXIMO = 8 * 1024 * 1024;
 
-// Radiografias incluidas para poder demostrar el sistema sin depender de
-// tener un archivo a mano. Ninguna pertenece al conjunto de entrenamiento.
+// Radiografias incluidas para poder demostrar el sistema sin depender de tener
+// un archivo a mano. Ninguna pertenece al conjunto de entrenamiento.
 const EJEMPLOS = [
-  { etiqueta: "Ejemplo con hallazgo", archivo: "/ejemplos/ejemplo-anomalia.jpeg" },
-  { etiqueta: "Ejemplo sin hallazgos", archivo: "/ejemplos/ejemplo-normal.jpeg" },
+  { etiqueta: "Caso con hallazgo", archivo: "/ejemplos/ejemplo-anomalia.jpeg" },
+  { etiqueta: "Caso sin hallazgos", archivo: "/ejemplos/ejemplo-normal.jpeg" },
 ];
 
 export default function Pagina() {
   const [imagen, setImagen] = useState<string | null>(null);
   const [nombreArchivo, setNombreArchivo] = useState("");
+  const [momento, setMomento] = useState<string>("");
   const [resultado, setResultado] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [vista, setVista] = useState<"overlay" | "heatmap">("overlay");
   const [arrastrando, setArrastrando] = useState(false);
   const entradaRef = useRef<HTMLInputElement>(null);
 
-  // Se despierta el contenedor al cargar la pagina: se apaga tras un minuto
-  // sin trafico, de modo que el primer analisis cargaria con el arranque en
-  // frio si no se anticipa aqui.
+  // Se despierta el contenedor al cargar: se apaga tras un minuto sin trafico,
+  // de modo que el primer analisis cargaria con el arranque en frio.
   useEffect(() => {
     fetch("/api/despertar").catch(() => {});
   }, []);
@@ -65,7 +63,7 @@ export default function Pagina() {
     }
     if (archivo.size > TAMANO_MAXIMO) {
       setError(
-        `La imagen pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB y el maximo es 8 MB.`,
+        `La imagen pesa ${(archivo.size / 1024 / 1024).toFixed(1)} MB y el máximo es 8 MB.`,
       );
       return;
     }
@@ -78,6 +76,23 @@ export default function Pagina() {
     lector.onerror = () => setError("No se pudo leer el archivo.");
     lector.readAsDataURL(archivo);
   }, []);
+
+  async function cargarEjemplo(ruta: string, etiqueta: string) {
+    setError(null);
+    setResultado(null);
+    try {
+      const respuesta = await fetch(ruta);
+      const blob = await respuesta.blob();
+      const lector = new FileReader();
+      lector.onload = () => {
+        setImagen(lector.result as string);
+        setNombreArchivo(etiqueta);
+      };
+      lector.readAsDataURL(blob);
+    } catch {
+      setError("No se pudo cargar la radiografía de ejemplo.");
+    }
+  }
 
   async function analizar() {
     if (!imagen) return;
@@ -98,27 +113,16 @@ export default function Pagina() {
         return;
       }
       setResultado(datos as Respuesta);
+      setMomento(
+        new Date().toLocaleString("es", {
+          dateStyle: "long",
+          timeStyle: "short",
+        }),
+      );
     } catch {
-      setError("No se pudo conectar con el servicio. Revisa tu conexion.");
+      setError("No se pudo conectar con el servicio. Revisa tu conexión.");
     } finally {
       setCargando(false);
-    }
-  }
-
-  async function cargarEjemplo(ruta: string, etiqueta: string) {
-    setError(null);
-    setResultado(null);
-    try {
-      const respuesta = await fetch(ruta);
-      const blob = await respuesta.blob();
-      const lector = new FileReader();
-      lector.onload = () => {
-        setImagen(lector.result as string);
-        setNombreArchivo(etiqueta);
-      };
-      lector.readAsDataURL(blob);
-    } catch {
-      setError("No se pudo cargar la radiografía de ejemplo.");
     }
   }
 
@@ -131,256 +135,289 @@ export default function Pagina() {
   }
 
   const esAnomalia = resultado?.prediction.label === "Anomaly";
-  const requiereRevision =
-    resultado !== null && resultado.prediction.confidence < UMBRAL_REVISION;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-5xl px-5 py-10">
-        <header className="mb-8 border-b border-slate-200 pb-6 dark:border-slate-800">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Clasificación binaria radiológica
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            Sistema de apoyo al diagnóstico basado en redes neuronales convolucionales.
-            Analiza radiografías de tórax y señala las regiones que fundamentan su
-            decisión mediante Grad-CAM.
-          </p>
-        </header>
+    <div className="trama-fondo min-h-screen">
+      {/* Cabecera */}
+      <header className="sticky top-0 z-20 border-b border-[var(--borde)] bg-[var(--plano)]/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--acento)]/40 bg-[var(--acento)]/10"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 3v18M7 6.5v11M17 6.5v11M3.5 10v4M20.5 10v4"
+                  stroke="var(--acento-vivo)"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <div className="leading-tight">
+              <h1 className="text-sm font-semibold">Clasificación binaria radiológica</h1>
+              <p className="text-[11px] text-[var(--tinta-tenue)]">
+                Apoyo al diagnóstico mediante redes convolucionales
+              </p>
+            </div>
+          </div>
+          <span className="hidden rounded-full border border-[var(--borde)] px-2.5 py-1 font-mono text-[10px] text-[var(--tinta-media)] sm:block">
+            YOLO11m-cls
+          </span>
+        </div>
+      </header>
 
-        <section
-          onDragOver={(e) => {
-            e.preventDefault();
-            setArrastrando(true);
-          }}
-          onDragLeave={() => setArrastrando(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setArrastrando(false);
-            const archivo = e.dataTransfer.files?.[0];
-            if (archivo) cargarArchivo(archivo);
-          }}
-          className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
-            arrastrando
-              ? "border-sky-500 bg-sky-50 dark:bg-sky-950/30"
-              : "border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
-          }`}
-        >
-          <input
-            ref={entradaRef}
-            type="file"
-            accept={FORMATOS.join(",")}
-            className="hidden"
-            onChange={(e) => {
-              const archivo = e.target.files?.[0];
+      <main className="mx-auto max-w-6xl px-5 py-8">
+        {/* Carga */}
+        {!resultado && (
+          <section
+            onDragOver={(e) => {
+              e.preventDefault();
+              setArrastrando(true);
+            }}
+            onDragLeave={() => setArrastrando(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setArrastrando(false);
+              const archivo = e.dataTransfer.files?.[0];
               if (archivo) cargarArchivo(archivo);
             }}
-          />
+            className={`rounded-2xl border-2 border-dashed p-8 text-center transition-colors sm:p-12 ${
+              arrastrando
+                ? "border-[var(--acento-vivo)] bg-[var(--acento)]/8"
+                : "border-[var(--borde-fuerte)] bg-[var(--panel)]/55"
+            }`}
+          >
+            <input
+              ref={entradaRef}
+              type="file"
+              accept={FORMATOS.join(",")}
+              className="hidden"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0];
+                if (archivo) cargarArchivo(archivo);
+              }}
+            />
 
-          {imagen ? (
-            <div className="space-y-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imagen}
-                alt="Radiografía seleccionada"
-                className="mx-auto max-h-72 rounded-lg object-contain"
-              />
-              <p className="text-xs text-slate-500 dark:text-slate-400">{nombreArchivo}</p>
-              <div className="flex flex-wrap justify-center gap-3">
-                <button
-                  onClick={analizar}
-                  disabled={cargando}
-                  className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+            {imagen ? (
+              <div className="space-y-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imagen}
+                  alt="Radiografía seleccionada"
+                  className="mx-auto max-h-64 rounded-xl border border-[var(--borde)] object-contain"
+                />
+                <p className="font-mono text-xs text-[var(--tinta-tenue)]">{nombreArchivo}</p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    onClick={analizar}
+                    disabled={cargando}
+                    className="rounded-lg bg-[var(--acento)] px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-[var(--acento)]/20 transition hover:bg-[var(--acento-vivo)] hover:text-[#04222b] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {cargando ? "Analizando…" : "Analizar radiografía"}
+                  </button>
+                  <button
+                    onClick={limpiar}
+                    disabled={cargando}
+                    className="rounded-lg border border-[var(--borde-fuerte)] px-5 py-2.5 text-sm font-medium text-[var(--tinta-media)] transition hover:text-[var(--tinta)] disabled:opacity-50"
+                  >
+                    Elegir otra
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <span
+                  aria-hidden="true"
+                  className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-[var(--borde)] bg-[var(--panel-alto)]"
                 >
-                  {cargando ? "Analizando…" : "Analizar radiografía"}
-                </button>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"
+                      stroke="var(--tinta-media)"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-sm text-[var(--tinta-media)]">
+                    Arrastra una radiografía de tórax o selecciónala desde tu equipo
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--tinta-tenue)]">
+                    JPEG, PNG o WebP · hasta 8 MB
+                  </p>
+                </div>
                 <button
-                  onClick={limpiar}
-                  disabled={cargando}
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800"
+                  onClick={() => entradaRef.current?.click()}
+                  className="rounded-lg bg-[var(--acento)] px-6 py-2.5 text-sm font-medium text-white shadow-lg shadow-[var(--acento)]/20 transition hover:bg-[var(--acento-vivo)] hover:text-[#04222b]"
                 >
-                  Elegir otra
+                  Seleccionar imagen
                 </button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Arrastra una radiografía aquí o selecciónala desde tu equipo
-              </p>
-              <button
-                onClick={() => entradaRef.current?.click()}
-                className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700"
-              >
-                Seleccionar imagen
-              </button>
-              <p className="text-xs text-slate-400">JPEG, PNG o WebP · hasta 8 MB</p>
 
-              <div className="pt-2">
-                <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
-                  ¿No tienes una a mano? Prueba con estas:
-                </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {EJEMPLOS.map(({ etiqueta, archivo }) => (
-                    <button
-                      key={archivo}
-                      onClick={() => cargarEjemplo(archivo, etiqueta)}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-                    >
-                      {etiqueta}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {cargando && (
-          <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
-            Si es el primer análisis tras un rato de inactividad, iniciar el servicio
-            puede tardar unos segundos.
-          </p>
-        )}
-
-        {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
-            {error}
-          </div>
-        )}
-
-        {resultado && (
-          <section className="mt-8 space-y-6">
-            <div
-              className={`rounded-xl border p-6 ${
-                esAnomalia
-                  ? "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30"
-                  : "border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"
-              }`}
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Resultado
+                <div className="pt-3">
+                  <p className="mb-2 text-xs text-[var(--tinta-tenue)]">
+                    ¿No tienes una a mano? Prueba con estas:
                   </p>
-                  <p className="mt-1 text-2xl font-semibold">
-                    {esAnomalia ? "Hallazgo anómalo" : "Sin hallazgos"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Confianza
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold tabular-nums">
-                    {(resultado.prediction.confidence * 100).toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-
-              {requiereRevision && (
-                <p className="mt-4 rounded-lg bg-white/70 p-3 text-sm dark:bg-black/20">
-                  <strong className="font-medium">Se recomienda revisión humana.</strong>{" "}
-                  La confianza está por debajo del umbral de {UMBRAL_REVISION}, valor que
-                  en la evaluación del modelo delimitó la totalidad de sus errores.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold">Regiones de atención</h2>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    En rojo, las zonas que más pesaron en la decisión del modelo
-                  </p>
-                </div>
-                <div className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
-                  {(["overlay", "heatmap"] as const).map((modo) => (
-                    <button
-                      key={modo}
-                      onClick={() => setVista(modo)}
-                      className={`rounded px-3 py-1.5 text-xs font-medium transition ${
-                        vista === modo
-                          ? "bg-white shadow-sm dark:bg-slate-700"
-                          : "text-slate-600 dark:text-slate-400"
-                      }`}
-                    >
-                      {modo === "overlay" ? "Superpuesto" : "Solo mapa"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <figure>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imagen ?? ""}
-                    alt="Radiografía original"
-                    className="w-full rounded-lg border border-slate-200 object-contain dark:border-slate-700"
-                  />
-                  <figcaption className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
-                    Original
-                  </figcaption>
-                </figure>
-                <figure>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`data:image/jpeg;base64,${
-                      vista === "overlay"
-                        ? resultado.explainability.overlay_base64
-                        : resultado.explainability.heatmap_base64
-                    }`}
-                    alt="Mapa de atención Grad-CAM"
-                    className="w-full rounded-lg border border-slate-200 object-contain dark:border-slate-700"
-                  />
-                  <figcaption className="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
-                    Grad-CAM
-                  </figcaption>
-                </figure>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="mb-4 text-base font-semibold">Rendimiento</h2>
-              <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {(
-                  [
-                    ["Preprocesamiento", resultado.performance.preprocess_time_ms],
-                    ["Inferencia", resultado.performance.inference_time_ms],
-                    ["Grad-CAM", resultado.performance.explainability_time_ms],
-                    ["Total", resultado.performance.total_latency_ms],
-                  ] as const
-                ).map(([etiqueta, valor]) => (
-                  <div key={etiqueta}>
-                    <dt className="text-xs text-slate-500 dark:text-slate-400">
-                      {etiqueta}
-                    </dt>
-                    <dd className="mt-1 text-lg font-semibold tabular-nums">
-                      {valor.toFixed(0)}
-                      <span className="ml-1 text-xs font-normal text-slate-500">ms</span>
-                    </dd>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {EJEMPLOS.map(({ etiqueta, archivo }) => (
+                      <button
+                        key={archivo}
+                        onClick={() => cargarEjemplo(archivo, etiqueta)}
+                        className="rounded-lg border border-[var(--borde)] px-3 py-1.5 text-xs font-medium text-[var(--tinta-media)] transition hover:border-[var(--acento)]/50 hover:text-[var(--tinta)]"
+                      >
+                        {etiqueta}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </dl>
-              <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-                Modelo: {resultado.performance.model_used}
-              </p>
-            </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
-        <footer className="mt-12 border-t border-slate-200 pt-6 dark:border-slate-800">
-          <p className="rounded-lg bg-slate-100 p-4 text-xs leading-relaxed text-slate-600 dark:bg-slate-900 dark:text-slate-400">
-            <strong className="font-medium text-slate-800 dark:text-slate-200">
-              Aviso.
-            </strong>{" "}
-            Herramienta desarrollada con fines académicos como trabajo de grado. No
-            constituye un dispositivo médico ni sustituye el juicio de un profesional de
-            la salud. Sus resultados no deben emplearse para tomar decisiones clínicas.
+        {cargando && !resultado && (
+          <div className="mt-6 space-y-3">
+            <div className="esqueleto h-56 rounded-xl" />
+            <p className="text-center text-xs text-[var(--tinta-tenue)]">
+              Si es el primer análisis tras un rato de inactividad, iniciar el servicio
+              puede tardar unos segundos.
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="mt-6 flex gap-3 rounded-xl border border-[var(--estado-critico)]/40 bg-[var(--estado-critico)]/10 p-4 text-sm"
+          >
+            <span aria-hidden="true" className="text-[var(--estado-critico)]">
+              ⚠
+            </span>
+            <p className="text-[var(--tinta)]">{error}</p>
+          </div>
+        )}
+
+        {/* Informe */}
+        {resultado && imagen && (
+          <article className="surgir space-y-5">
+            {/* Encabezado del informe */}
+            <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--borde)] pb-4">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--tinta-tenue)]">
+                  Informe de análisis
+                </p>
+                <h2 className="mt-1 font-mono text-sm text-[var(--tinta)]">
+                  {nombreArchivo}
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--tinta-tenue)]">
+                  {momento} · Modelo {resultado.performance.model_used}
+                </p>
+              </div>
+              <div className="sin-imprimir flex gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="rounded-lg border border-[var(--borde-fuerte)] px-4 py-2 text-xs font-medium text-[var(--tinta-media)] transition hover:text-[var(--tinta)]"
+                >
+                  Imprimir informe
+                </button>
+                <button
+                  onClick={limpiar}
+                  className="rounded-lg bg-[var(--acento)] px-4 py-2 text-xs font-medium text-white transition hover:bg-[var(--acento-vivo)] hover:text-[#04222b]"
+                >
+                  Analizar otra
+                </button>
+              </div>
+            </header>
+
+            <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
+              {/* Visor */}
+              <VisorRadiografia
+                original={imagen}
+                superpuesta={`data:image/jpeg;base64,${resultado.explainability.overlay_base64}`}
+                mapa={`data:image/jpeg;base64,${resultado.explainability.heatmap_base64}`}
+              />
+
+              {/* Lateral */}
+              <div className="space-y-5">
+                {/* Resultado: el color nunca va solo, siempre con icono y texto */}
+                <section
+                  className={`rounded-xl border p-5 ${
+                    esAnomalia
+                      ? "border-[var(--estado-aviso)]/40 bg-[var(--estado-aviso)]/8"
+                      : "border-[var(--estado-bien)]/40 bg-[var(--estado-bien)]/8"
+                  }`}
+                >
+                  <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--tinta-tenue)]">
+                    Resultado
+                  </p>
+                  <div className="mt-2 flex items-center gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{
+                        background: esAnomalia
+                          ? "var(--estado-aviso)"
+                          : "var(--estado-bien)",
+                      }}
+                    />
+                    <p className="text-xl font-semibold text-[var(--tinta)]">
+                      {esAnomalia ? "Hallazgo anómalo" : "Sin hallazgos"}
+                    </p>
+                  </div>
+                  <div className="mt-5">
+                    <MedidorConfianza
+                      confianza={resultado.prediction.confidence}
+                      umbral={UMBRAL_REVISION}
+                    />
+                  </div>
+                </section>
+
+                <PanelModelo />
+
+                {/* Tiempos */}
+                <section className="rounded-xl border border-[var(--borde)] bg-[var(--panel)] p-5">
+                  <h2 className="mb-3 text-sm font-semibold">Tiempos de proceso</h2>
+                  <dl className="space-y-2">
+                    {(
+                      [
+                        ["Preprocesamiento", resultado.performance.preprocess_time_ms],
+                        ["Inferencia", resultado.performance.inference_time_ms],
+                        ["Grad-CAM", resultado.performance.explainability_time_ms],
+                      ] as const
+                    ).map(([etiqueta, valor]) => (
+                      <div key={etiqueta} className="flex justify-between text-xs">
+                        <dt className="text-[var(--tinta-media)]">{etiqueta}</dt>
+                        <dd className="font-mono tabular-nums text-[var(--tinta)]">
+                          {valor.toFixed(0)} ms
+                        </dd>
+                      </div>
+                    ))}
+                    <div className="flex justify-between border-t border-[var(--borde)] pt-2 text-xs">
+                      <dt className="font-medium text-[var(--tinta)]">Total</dt>
+                      <dd className="font-mono tabular-nums font-medium text-[var(--acento-vivo)]">
+                        {resultado.performance.total_latency_ms.toFixed(0)} ms
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </div>
+            </div>
+          </article>
+        )}
+
+        <footer className="mt-10 border-t border-[var(--borde)] pt-5">
+          <p className="text-xs leading-relaxed text-[var(--tinta-tenue)]">
+            <strong className="font-medium text-[var(--tinta-media)]">Aviso.</strong>{" "}
+            Herramienta desarrollada con fines académicos como trabajo de grado en
+            Ingeniería en Sistemas. No constituye un dispositivo médico ni sustituye el
+            juicio de un profesional de la salud. Sus resultados no deben emplearse para
+            tomar decisiones clínicas.
           </p>
         </footer>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
