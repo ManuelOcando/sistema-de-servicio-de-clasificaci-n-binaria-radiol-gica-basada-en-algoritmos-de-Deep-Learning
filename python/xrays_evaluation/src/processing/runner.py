@@ -1,11 +1,20 @@
+import os
 import time
 from src.processing.image_utils.main import ImageUtils
 from src.inference.yolo_classifier import YoloClassifier
 from src.processing.explainability.gradcam import GradCam
 
+# Ruta del modelo. Se toma de la variable de entorno XRAY_MODEL_PATH para que
+# el servicio funcione sin cambios en local, en contenedor y en la nube, donde
+# el directorio de trabajo no siempre es el mismo.
+RUTA_MODELO_POR_DEFECTO = os.getenv(
+    "XRAY_MODEL_PATH", "models/YOLO/xrays_evaluation_model_medium_v1.pt"
+)
+
 
 class XRayInferencePipeline:
-    def __init__(self, model_path: str = 'models/YOLO/xrays_evaluation_model_medium_v1.pt'):
+    def __init__(self, model_path: str = None):
+        model_path = model_path or RUTA_MODELO_POR_DEFECTO
         self.image_utils = ImageUtils()
         self.model_wrapper = YoloClassifier(model_path)
         self.explainer = GradCam()

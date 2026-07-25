@@ -21,13 +21,18 @@ app = FastAPI(
 )
 
 # CORS
+# Los origenes permitidos se pueden ampliar con la variable de entorno
+# CORS_ORIGINS (separados por comas), necesaria para autorizar al frontend
+# desplegado sin tener que modificar el codigo en cada despliegue.
 origins = [
     "http://localhost",
     "http://localhost:3000",
     "http://localhost:8080",
-    "https://www.ingeniia.co",
-    "https://platform.ingeniia.co"
 ]
+
+origenes_extra = os.getenv("CORS_ORIGINS", "")
+if origenes_extra:
+    origins += [o.strip() for o in origenes_extra.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
