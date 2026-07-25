@@ -1,0 +1,127 @@
+{
+  "fuga_de_datos": {
+    "entrenamiento_unicas": 18818,
+    "Prueba interna (split_data/test)": {
+      "unicas": 900,
+      "coincidencias_con_entrenamiento": 0
+    },
+    "Validacion externa (benchmarking)": {
+      "unicas": 200,
+      "coincidencias_con_entrenamiento": 0
+    }
+  },
+  "resultados": {
+    "Prueba interna (split_data/test)": [
+      {
+        "exactitud": 0.9655555555555555,
+        "precision": 0.9493087557603687,
+        "sensibilidad": 0.9786223277909739,
+        "especificidad": 0.954070981210856,
+        "f1": 0.9637426900584796,
+        "vpn": 0.98068669527897,
+        "VP": 412,
+        "FN": 9,
+        "FP": 22,
+        "VN": 457,
+        "modelo": "YOLO11n-cls (nano)",
+        "auc": 0.996246138282943,
+        "latencia_media_ms": 6.509659666673745,
+        "latencia_p95_ms": 8.094555000116088,
+        "tamano_mb": 3.038393020629883,
+        "n_imagenes": 900
+      },
+      {
+        "exactitud": 0.9888888888888889,
+        "precision": 0.9951807228915662,
+        "sensibilidad": 0.9809976247030879,
+        "especificidad": 0.9958246346555324,
+        "f1": 0.9880382775119617,
+        "vpn": 0.9835051546391752,
+        "VP": 413,
+        "FN": 8,
+        "FP": 2,
+        "VN": 477,
+        "modelo": "YOLO11m-cls (medium)",
+        "auc": 0.9997966864856019,
+        "latencia_media_ms": 22.607421888895058,
+        "latencia_p95_ms": 25.176955000256385,
+        "tamano_mb": 19.91127586364746,
+        "n_imagenes": 900
+      },
+      {
+        "exactitud": 0.99,
+        "precision": 0.9951923076923077,
+        "sensibilidad": 0.9833729216152018,
+        "especificidad": 0.9958246346555324,
+        "f1": 0.989247311827957,
+        "vpn": 0.9855371900826446,
+        "VP": 414,
+        "FN": 7,
+        "FP": 2,
+        "VN": 477,
+        "modelo": "YOLO11x-cls (xlarge)",
+        "auc": 0.9990974863507208,
+        "latencia_media_ms": 55.744423888891106,
+        "latencia_p95_ms": 78.79644499971619,
+        "tamano_mb": 54.36553192138672,
+        "n_imagenes": 900
+      }
+    ],
+    "Validacion externa (benchmarking)": [
+      {
+        "exactitud": 0.985,
+        "precision": 0.98989898989899,
+        "sensibilidad": 0.98,
+        "especificidad": 0.99,
+        "f1": 0.9849246231155778,
+        "vpn": 0.9801980198019802,
+        "VP": 98,
+        "FN": 2,
+        "FP": 1,
+        "VN": 99,
+        "modelo": "YOLO11n-cls (nano)",
+        "auc": 0.9998,
+        "latencia_media_ms": 23.945243500013476,
+        "latencia_p95_ms": 43.47208999995472,
+        "tamano_mb": 3.038393020629883,
+        "n_imagenes": 200
+      },
+      {
+        "exactitud": 0.99,
+        "precision": 1.0,
+        "sensibilidad": 0.98,
+        "especificidad": 1.0,
+        "f1": 0.98989898989899,
+        "vpn": 0.9803921568627451,
+        "VP": 98,
+        "FN": 2,
+        "FP": 0,
+        "VN": 100,
+        "modelo": "YOLO11m-cls (medium)",
+        "auc": 0.9999,
+        "latencia_media_ms": 41.5663390000168,
+        "latencia_p95_ms": 61.52756500009671,
+        "tamano_mb": 19.91127586364746,
+        "n_imagenes": 200
+      },
+      {
+        "exactitud": 0.99,
+        "precision": 1.0,
+        "sensibilidad": 0.98,
+        "especificidad": 1.0,
+        "f1": 0.98989898989899,
+        "vpn": 0.9803921568627451,
+        "VP": 98,
+        "FN": 2,
+        "FP": 0,
+        "VN": 100,
+        "modelo": "YOLO11x-cls (xlarge)",
+        "auc": 0.9997,
+        "latencia_media_ms": 74.40949200000432,
+        "latencia_p95_ms": 97.30727000003296,
+        "tamano_mb": 54.36553192138672,
+        "n_imagenes": 200
+      }
+    ]
+  }
+}
