@@ -1,14 +1,14 @@
 import time
 from src.processing.image_utils.main import ImageUtils
 from src.inference.yolo_classifier import YoloClassifier
-from src.processing.explainability.gradcam import SimpleGradCam
+from src.processing.explainability.gradcam import GradCam
 
 
 class XRayInferencePipeline:
     def __init__(self, model_path: str = 'models/YOLO/xrays_evaluation_model_medium_v1.pt'):
         self.image_utils = ImageUtils()
         self.model_wrapper = YoloClassifier(model_path)
-        self.explainer = SimpleGradCam()
+        self.explainer = GradCam()
 
         # mapping class
         self.class_map = {0: "Anomaly", 1: "Normal"}
@@ -31,6 +31,7 @@ class XRayInferencePipeline:
         raw_heatmap = self.explainer.generate_heatmap(
             image=original_image,
             model=prediction["internal_model"],
+            class_idx=prediction["class_id"],
         )
 
         # 4. overlay

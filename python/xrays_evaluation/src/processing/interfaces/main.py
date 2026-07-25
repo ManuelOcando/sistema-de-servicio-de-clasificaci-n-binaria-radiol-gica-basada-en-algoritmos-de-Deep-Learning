@@ -20,7 +20,8 @@ class IExplainer(ABC):
     """Interface to explainability."""
 
     @abstractmethod
-    def generate_heatmap(self, image: np.ndarray, model: Any, target_layer: Any) -> np.ndarray:
+    def generate_heatmap(self, image: np.ndarray, model: Any, target_layer: Any,
+                         class_idx: int = None) -> np.ndarray:
         pass
 
 

@@ -6,72 +6,151 @@ import torch.nn.functional as F
 from src.processing.interfaces.main import IExplainer
 
 
-class SimpleGradCam(IExplainer):
+class GradCam(IExplainer):
     """
-    GradCAM
+    Grad-CAM (Selvaraju et al., 2017).
+
+    Pondera los mapas de activación de la última capa convolucional por el
+    gradiente del logit de la clase predicha, de modo que el mapa resultante
+    es específico de la clase: explicar "Anomaly" produce un mapa distinto
+    al de "Normal".
+
+    El forward se ejecuta con el mismo preprocesamiento que aplica Ultralytics
+    en inferencia (RGB, Resize al lado corto, CenterCrop, escala 1/255), para
+    que la explicación corresponda exactamente a la entrada que vio el modelo
+    al clasificar.
     """
 
-    def __init__(self):
+    def __init__(self, imgsz: int = 224):
+        self.imgsz = imgsz
         self.activations = None
+        self.gradients = None
 
-    def hook_fn(self, module, input, output):
+    # --- captura de activaciones y gradientes ---
+    def _forward_hook(self, module, inputs, output):
         self.activations = output
+        if output.requires_grad:
+            output.register_hook(self._backward_hook)
+
+    def _backward_hook(self, grad):
+        self.gradients = grad
 
     def _find_last_conv_layer(self, model):
         """
-        find last convolutional layer
+        Última capa convolucional del grafo. Se prefiere el bloque completo
+        (Conv2d + BatchNorm + activación) sobre el Conv2d desnudo, porque
+        Grad-CAM opera sobre activaciones post-activación.
         """
-        last_conv = None
+        last_block, last_conv = None, None
         for module in model.modules():
+            children = list(module.children())
+            if any(isinstance(c, nn.Conv2d) for c in children) and len(children) > 1:
+                last_block = module
             if isinstance(module, nn.Conv2d):
                 last_conv = module
-        return last_conv
+        return last_block if last_block is not None else last_conv
 
-    def generate_heatmap(self, image: np.ndarray, model: any, target_layer=None) -> np.ndarray:
+    # --- preprocesamiento equivalente a ultralytics.classify_transforms ---
+    def _preprocess(self, image: np.ndarray) -> tuple:
         """
-        Generate a HeatMap ensuring we use a spatial layer.
+        Replica Resize(lado corto -> imgsz) + CenterCrop(imgsz) + ToTensor().
+        Devuelve el tensor y la geometría necesaria para reproyectar el mapa
+        sobre la imagen original.
         """
-        # 1. Prepare image to PyTorch (HWC -> CHW, Normalize)
-        img_tensor = torch.from_numpy(image).float() / 255.0
-        img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)
+        h, w = image.shape[:2]
+        scale = self.imgsz / min(h, w)
+        nh, nw = round(h * scale), round(w * scale)
 
-        device = next(model.parameters()).device
-        img_tensor = img_tensor.to(device)
+        resized = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_LINEAR)
 
-        # 2. Identify the last convolutional layer safely
+        top = (nh - self.imgsz) // 2
+        left = (nw - self.imgsz) // 2
+        cropped = resized[top:top + self.imgsz, left:left + self.imgsz]
+
+        rgb = cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB)
+        tensor = torch.from_numpy(rgb).float().div(255.0)
+        tensor = tensor.permute(2, 0, 1).unsqueeze(0)
+
+        return tensor, (nh, nw, top, left)
+
+    def _project_to_original(self, cam: np.ndarray, geometry: tuple, shape: tuple) -> np.ndarray:
+        """
+        Reproyecta el mapa (imgsz x imgsz) sobre el lienzo original. Las zonas
+        recortadas por el CenterCrop quedan en cero: el modelo nunca las vio,
+        así que atribuirles atención sería incorrecto.
+        """
+        nh, nw, top, left = geometry
+        h, w = shape[:2]
+
+        cam_crop = cv2.resize(cam, (self.imgsz, self.imgsz), interpolation=cv2.INTER_LINEAR)
+
+        canvas = np.zeros((nh, nw), dtype=np.float32)
+        canvas[top:top + self.imgsz, left:left + self.imgsz] = cam_crop
+
+        return cv2.resize(canvas, (w, h), interpolation=cv2.INTER_LINEAR)
+
+    def generate_heatmap(self, image: np.ndarray, model: any, target_layer=None,
+                         class_idx: int = None) -> np.ndarray:
+        """
+        Genera el mapa de calor Grad-CAM para la clase indicada.
+
+        :param image: imagen original en BGR (tal como la entrega OpenCV).
+        :param model: nn.Module subyacente del modelo YOLO.
+        :param target_layer: capa objetivo; por defecto la última convolucional.
+        :param class_idx: clase a explicar; por defecto la predicha por el modelo.
+        :return: mapa normalizado [0, 1] con las dimensiones de la imagen original.
+        """
         if target_layer is None:
             target_layer = self._find_last_conv_layer(model)
             if target_layer is None:
                 raise ValueError("No se encontró una capa Conv2d en el modelo para generar el Heatmap.")
 
-        # 3. Registry Hook
-        handle = target_layer.register_forward_hook(self.hook_fn)
+        device = next(model.parameters()).device
+        input_tensor, geometry = self._preprocess(image)
+        input_tensor = input_tensor.to(device)
 
-        # 4. Forward pass
-        with torch.no_grad():
-            model(img_tensor)
+        # Todos los parámetros del modelo llegan congelados (requires_grad=False).
+        # Habilitar el gradiente en la entrada basta para construir el grafo de
+        # autograd y así poder retropropagar hasta las activaciones objetivo.
+        input_tensor.requires_grad_(True)
 
-        handle.remove()
+        self.activations, self.gradients = None, None
+        handle = target_layer.register_forward_hook(self._forward_hook)
 
-        # 5. Process activation
-        # acts shape esperado: [1, Channels, H, W] (ej: 1, 1280, 7, 7)
-        acts = self.activations
+        try:
+            with torch.enable_grad():
+                logits = model(input_tensor)
+                if isinstance(logits, (list, tuple)):
+                    logits = logits[0]
+                logits = logits.reshape(1, -1)
 
-        if acts is None:
+                if class_idx is None:
+                    class_idx = int(logits.argmax(dim=1).item())
+
+                model.zero_grad(set_to_none=True)
+                logits[0, class_idx].backward()
+        finally:
+            handle.remove()
+
+        if self.activations is None:
             raise RuntimeError("El hook no capturó activaciones.")
+        if self.gradients is None:
+            raise RuntimeError("El hook no capturó gradientes; no se pudo construir el grafo de autograd.")
 
-        # Average over channels (Fast-CAM)
-        heatmap = torch.mean(acts, dim=1).squeeze()
+        # Pesos de Grad-CAM: gradiente promediado sobre la dimensión espacial.
+        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
 
-        # 6. Robust Normalization (Min-Max Scaling)
-        heatmap = F.relu(heatmap)
+        # Combinación lineal de los mapas de activación + ReLU: solo interesa
+        # la evidencia que empuja hacia la clase, no la que la contradice.
+        cam = F.relu((weights * self.activations).sum(dim=1)).squeeze(0)
 
-        min_val = torch.min(heatmap)
-        max_val = torch.max(heatmap)
-
+        # Normalización Min-Max
+        min_val, max_val = torch.min(cam), torch.max(cam)
         if max_val - min_val > 0:
-            heatmap = (heatmap - min_val) / (max_val - min_val)
+            cam = (cam - min_val) / (max_val - min_val)
         else:
-            heatmap = torch.zeros_like(heatmap)
+            cam = torch.zeros_like(cam)
 
-        return heatmap.cpu().numpy()
+        cam = cam.detach().cpu().numpy().astype(np.float32)
+
+        return self._project_to_original(cam, geometry, image.shape)
