@@ -47,7 +47,12 @@ def main():
     ap.add_argument("--url", default=URL_POR_DEFECTO, help="URL base del servicio")
     ap.add_argument("--repeticiones", type=int, default=1,
                     help="numero de peticiones; la primera incluye el arranque en frio")
-    ap.add_argument("--salida", default="resultado", help="prefijo de los archivos generados")
+    # Por defecto se escribe junto a la imagen de entrada y no en el directorio
+    # actual: PowerShell arranca en C:\Windows\System32, que no es escribible
+    # sin permisos de administrador.
+    ap.add_argument("--salida", default=None,
+                    help="prefijo de los archivos generados "
+                         "(por defecto, junto a la imagen de entrada)")
     ap.add_argument("--timeout", type=int, default=300)
     args = ap.parse_args()
 
@@ -84,11 +89,18 @@ def main():
         print(f"  Ida y vuelta : {transcurrido:.2f} s\n")
 
     # Se guardan las imagenes de la ultima respuesta
+    prefijo = Path(args.salida) if args.salida else imagen.parent / f"resultado_{imagen.stem}"
     for clave, sufijo in (("heatmap_base64", "heatmap"), ("overlay_base64", "overlay")):
         s = datos["explainability"][clave]
-        destino = Path(f"{args.salida}_{sufijo}.jpg")
-        destino.write_bytes(base64.b64decode(s.split(",")[1] if "," in s else s))
-        print(f"Guardado: {destino}")
+        destino = prefijo.with_name(f"{prefijo.name}_{sufijo}.jpg")
+        try:
+            destino.write_bytes(base64.b64decode(s.split(",")[1] if "," in s else s))
+            print(f"Guardado: {destino}")
+        except OSError as e:
+            print(f"No se pudo escribir en {destino}: {e}")
+            print("  Indica una ruta escribible con --salida, por ejemplo:")
+            print(f"  --salida {Path.home() / 'Downloads' / 'resultado'}")
+            break
 
     if len(tiempos) > 1:
         print(f"\nPrimera peticion: {tiempos[0]:.2f} s")

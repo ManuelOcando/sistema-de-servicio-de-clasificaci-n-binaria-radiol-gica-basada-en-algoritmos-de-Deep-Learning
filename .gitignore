@@ -9,6 +9,10 @@ venv/
 __pycache__/
 .pytest_cache
 
+# salidas de utilidades/probar_api.py
+resultado_*_heatmap.jpg
+resultado_*_overlay.jpg
+
 # contenido ensamblado del Space (se genera con preparar_space.py)
 deploy/hf_space/build/
 
