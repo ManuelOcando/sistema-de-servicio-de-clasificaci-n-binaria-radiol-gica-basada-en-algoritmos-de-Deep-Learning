@@ -1,0 +1,68 @@
+{
+  "bits": 256,
+  "distribucion_nula": {
+    "media": 76.7425,
+    "minimo": 28,
+    "percentil_1": 42
+  },
+  "duplicados_conocidos_md5": 100,
+  "umbral_sugerido": 2,
+  "comparaciones": [
+    {
+      "origen": "test",
+      "contra": "train",
+      "total": 900,
+      "coincidencias_por_umbral": {
+        "0": 0,
+        "2": 0,
+        "5": 3,
+        "10": 17,
+        "15": 38,
+        "20": 105
+      },
+      "distancia_minima_observada": 3
+    },
+    {
+      "origen": "test",
+      "contra": "valid",
+      "total": 900,
+      "coincidencias_por_umbral": {
+        "0": 0,
+        "2": 0,
+        "5": 0,
+        "10": 2,
+        "15": 8,
+        "20": 24
+      },
+      "distancia_minima_observada": 7
+    },
+    {
+      "origen": "benchmarking",
+      "contra": "train",
+      "total": 200,
+      "coincidencias_por_umbral": {
+        "0": 2,
+        "2": 64,
+        "5": 129,
+        "10": 146,
+        "15": 147,
+        "20": 152
+      },
+      "distancia_minima_observada": 0
+    },
+    {
+      "origen": "benchmarking",
+      "contra": "raw_data",
+      "total": 200,
+      "coincidencias_por_umbral": {
+        "0": 177,
+        "2": 198,
+        "5": 200,
+        "10": 200,
+        "15": 200,
+        "20": 200
+      },
+      "distancia_minima_observada": 0
+    }
+  ]
+}
