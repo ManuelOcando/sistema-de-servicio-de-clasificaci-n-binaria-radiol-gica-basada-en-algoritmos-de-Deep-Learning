@@ -27,12 +27,13 @@ class XRayInput(BaseModel):
     """
     image_base64: str = Field(..., description="Cadena Base64 de la imagen de Rayos X a analizar.")
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "image_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDA..."
             }
         }
+    }
 
 
 class XRayOutput(BaseModel):

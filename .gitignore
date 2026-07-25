@@ -9,6 +9,9 @@ venv/
 __pycache__/
 .pytest_cache
 
+# contenido ensamblado del Space (se genera con preparar_space.py)
+deploy/hf_space/build/
+
 # datasets
 datasets/ingeniia_services_credit_scoring_csv_german_credit_risk_v1.0.0_training_20250825
 datasets/ingeniia_services_xrays_evaluation_img_v1.0.0_training_20251121
