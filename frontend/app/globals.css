@@ -97,8 +97,13 @@ body {
   }
 }
 
+/* Sin fill-mode a proposito: el estado natural del elemento es visible y la
+   animacion solo lo acompana al aparecer. Con `both` el contenido arrancaria
+   en opacidad 0 y dependeria de que la animacion llegue a ejecutarse para
+   verse; si algo la impide, el informe quedaria invisible. Nada que el
+   usuario necesite leer debe depender de una animacion. */
 .surgir {
-  animation: surgir 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: surgir 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

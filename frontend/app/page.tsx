@@ -338,6 +338,7 @@ export default function Pagina() {
                 original={imagen}
                 superpuesta={`data:image/jpeg;base64,${resultado.explainability.overlay_base64}`}
                 mapa={`data:image/jpeg;base64,${resultado.explainability.heatmap_base64}`}
+                esAnomalia={esAnomalia}
               />
 
               {/* Lateral */}

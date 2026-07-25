@@ -13,20 +13,37 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
  * El divisor de comparacion recorta en coordenadas de pantalla, no de la
  * imagen: asi la linea permanece fija aunque se desplace o amplie el
  * contenido, que es el comportamiento que espera quien la usa.
+ *
+ * El mapa de calor NO se despliega por defecto cuando no hay hallazgos. El
+ * rojo sobre una radiografia comunica "aqui hay algo" de forma inmediata,
+ * aunque el texto diga lo contrario, y la imagen gana a la etiqueta. En un
+ * caso normal el mapa senala donde se sustenta la AUSENCIA de hallazgos, que
+ * es una lectura distinta y menos intuitiva, de modo que se muestra solo a
+ * peticion y acompanado de esa aclaracion.
  */
 
 type Props = {
   original: string;
   superpuesta: string;
   mapa: string;
+  esAnomalia: boolean;
 };
 
 type Punto = { x: number; y: number };
 
 const PASO_RUEDA = 1.15;
 
-export default function VisorRadiografia({ original, superpuesta, mapa }: Props) {
+export default function VisorRadiografia({
+  original,
+  superpuesta,
+  mapa,
+  esAnomalia,
+}: Props) {
   const contenedorRef = useRef<HTMLDivElement>(null);
+
+  // Con hallazgo, la explicabilidad es lo primero que interesa ver. Sin
+  // hallazgos, se ofrece pero no se impone.
+  const [explicacion, setExplicacion] = useState(esAnomalia);
 
   const [natural, setNatural] = useState({ ancho: 0, alto: 0 });
   const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
@@ -67,7 +84,8 @@ export default function VisorRadiografia({ original, superpuesta, mapa }: Props)
     setZoom(1);
     setDesplazamiento({ x: 0, y: 0 });
     setDivision(50);
-  }, [original]);
+    setExplicacion(esAnomalia);
+  }, [original, esAnomalia]);
 
   const limitar = useCallback(
     (p: Punto, z: number): Punto => {
@@ -164,26 +182,45 @@ export default function VisorRadiografia({ original, superpuesta, mapa }: Props)
     <figure className="overflow-hidden rounded-xl border border-[var(--borde)] bg-[var(--panel)]">
       {/* Barra de herramientas */}
       <div className="sin-imprimir flex flex-wrap items-center justify-between gap-3 border-b border-[var(--borde)] px-4 py-2.5">
-        <div className="flex gap-1 rounded-lg bg-[var(--panel-alto)] p-0.5">
-          {(
-            [
-              ["superpuesta", "Superpuesto"],
-              ["mapa", "Solo mapa"],
-            ] as const
-          ).map(([valor, texto]) => (
-            <button
-              key={valor}
-              onClick={() => setCapa(valor)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                capa === valor
-                  ? "bg-[var(--acento)] text-white"
-                  : "text-[var(--tinta-media)] hover:text-[var(--tinta)]"
-              }`}
-            >
-              {texto}
-            </button>
-          ))}
-        </div>
+        {explicacion ? (
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1 rounded-lg bg-[var(--panel-alto)] p-0.5">
+              {(
+                [
+                  ["superpuesta", "Superpuesto"],
+                  ["mapa", "Solo mapa"],
+                ] as const
+              ).map(([valor, texto]) => (
+                <button
+                  key={valor}
+                  onClick={() => setCapa(valor)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                    capa === valor
+                      ? "bg-[var(--acento)] text-white"
+                      : "text-[var(--tinta-media)] hover:text-[var(--tinta)]"
+                  }`}
+                >
+                  {texto}
+                </button>
+              ))}
+            </div>
+            {!esAnomalia && (
+              <button
+                onClick={() => setExplicacion(false)}
+                className="rounded-md px-2 py-1 text-xs text-[var(--tinta-tenue)] transition hover:text-[var(--tinta)]"
+              >
+                Ocultar
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setExplicacion(true)}
+            className="rounded-lg border border-[var(--borde-fuerte)] px-3 py-1.5 text-xs font-medium text-[var(--tinta-media)] transition hover:border-[var(--acento)]/50 hover:text-[var(--tinta)]"
+          >
+            Ver regiones que sustentan la decisión
+          </button>
+        )}
 
         <div className="flex items-center gap-1.5">
           <span
@@ -255,7 +292,10 @@ export default function VisorRadiografia({ original, superpuesta, mapa }: Props)
             que el divisor no se mueve al desplazar o ampliar. */}
         <div
           className="absolute inset-0"
-          style={{ clipPath: `inset(0 ${100 - division}% 0 0)` }}
+          style={{
+            clipPath: `inset(0 ${explicacion ? 100 - division : 100}% 0 0)`,
+            transition: "clip-path 0.3s ease",
+          }}
         >
           <img
             src={capa === "superpuesta" ? superpuesta : mapa}
@@ -265,9 +305,11 @@ export default function VisorRadiografia({ original, superpuesta, mapa }: Props)
           />
         </div>
 
-        {/* Divisor */}
+        {/* Divisor: solo cuando la explicabilidad esta desplegada */}
         <div
-          className="sin-imprimir absolute inset-y-0 z-10 w-px bg-white/70"
+          className={`sin-imprimir absolute inset-y-0 z-10 w-px bg-white/70 transition-opacity ${
+            explicacion ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
           style={{ left: `${division}%` }}
         >
           <button
@@ -297,16 +339,37 @@ export default function VisorRadiografia({ original, superpuesta, mapa }: Props)
         </div>
 
         {/* Rotulos de cada lado */}
-        <span className="sin-imprimir pointer-events-none absolute bottom-3 left-3 rounded bg-black/60 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white/80 backdrop-blur-sm">
-          Original
-        </span>
-        <span className="sin-imprimir pointer-events-none absolute bottom-3 right-3 rounded bg-black/60 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white/80 backdrop-blur-sm">
-          Grad-CAM
-        </span>
+        {explicacion && (
+          <>
+            <span className="sin-imprimir pointer-events-none absolute bottom-3 left-3 rounded bg-black/60 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white/80 backdrop-blur-sm">
+              Original
+            </span>
+            <span className="sin-imprimir pointer-events-none absolute bottom-3 right-3 rounded bg-black/60 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-white/80 backdrop-blur-sm">
+              Grad-CAM
+            </span>
+          </>
+        )}
       </div>
 
+      {/* Aclaracion imprescindible en los casos sin hallazgos: sin ella, el
+          rojo se lee como patologia. */}
+      {explicacion && !esAnomalia && (
+        <p className="flex gap-2 border-t border-[var(--borde)] bg-[var(--estado-bien)]/8 px-4 py-3 text-xs leading-relaxed text-[var(--tinta-media)]">
+          <span aria-hidden="true" className="text-[var(--estado-bien)]">
+            ⓘ
+          </span>
+          <span>
+            Este mapa <strong className="font-medium text-[var(--tinta)]">no señala
+            hallazgos</strong>: marca las regiones en las que el modelo se apoyó para
+            concluir que la radiografía es normal. El color intenso indica peso en la
+            decisión, no anomalía.
+          </span>
+        </p>
+      )}
+
       <figcaption className="border-t border-[var(--borde)] px-4 py-2.5 text-xs text-[var(--tinta-tenue)]">
-        Arrastra el divisor para comparar. Rueda del ratón para ampliar
+        {explicacion ? "Arrastra el divisor para comparar. " : ""}Rueda del ratón para
+        ampliar
         {natural.ancho > 0 && (
           <>
             {" "}
