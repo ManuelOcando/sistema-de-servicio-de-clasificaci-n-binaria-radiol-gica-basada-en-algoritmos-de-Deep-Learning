@@ -19,6 +19,11 @@ junto con este programa. En caso contrario, consulte https://www.gnu.org/license
 import torch
 import numpy as np
 
+# Debe preceder al import de ultralytics: define las funciones graficas de
+# OpenCV ausentes en las compilaciones headless, que ultralytics referencia
+# al cargarse.
+import src.processing.compat_headless  # noqa: F401
+
 from ultralytics import YOLO
 from src.processing.interfaces.main import IModelLoader
 

@@ -27,12 +27,23 @@ COPY requirements.txt .
 
 # Ultralytics declara opencv-python como dependencia, de modo que pip lo
 # instala aunque nosotros pidamos la variante headless: pip los trata como
-# distribuciones distintas pese a que ambas proveen el modulo cv2. Se
-# desinstala y se reinstala headless al final para dejar una sola copia.
+# distribuciones distintas pese a que ambas proveen el modulo cv2.
+#
+# Ambas escriben en el mismo directorio site-packages/cv2, asi que desinstalar
+# una sola deja el modulo mutilado (llega a faltar cv2.IMREAD_COLOR). Se
+# desinstalan LAS CUATRO variantes y se instala headless desde cero, que es la
+# unica secuencia que garantiza un cv2 integro. La comprobacion final hace
+# fallar la construccion si algo quedo mal, en lugar de descubrirlo en la
+# primera peticion.
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null || true && \
-    pip install --no-cache-dir --force-reinstall opencv-python-headless==4.12.0.88
+    pip uninstall -y opencv-python opencv-contrib-python \
+        opencv-contrib-python-headless opencv-python-headless 2>/dev/null || true && \
+    pip install --no-cache-dir opencv-python-headless==4.12.0.88 && \
+    python -c "import cv2, numpy; \
+        assert hasattr(cv2, 'IMREAD_COLOR'), 'cv2 incompleto'; \
+        cv2.imdecode(numpy.zeros((10,), dtype=numpy.uint8), cv2.IMREAD_COLOR); \
+        print('cv2 verificado:', cv2.__version__)"
 
 # Poda de artefactos que no intervienen en la inferencia.
 #

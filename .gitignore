@@ -12,6 +12,9 @@ __pycache__/
 # contenido ensamblado del Space (se genera con preparar_space.py)
 deploy/hf_space/build/
 
+# clon del repositorio del Space en Hugging Face (es un repo git aparte)
+deploy/hf_space/space_repo/
+
 # datasets
 datasets/ingeniia_services_credit_scoring_csv_german_credit_risk_v1.0.0_training_20250825
 datasets/ingeniia_services_xrays_evaluation_img_v1.0.0_training_20251121

@@ -40,22 +40,33 @@ imagen = (
         "numpy==2.2.6",
     )
     # ultralytics declara opencv-python como dependencia, asi que pip lo
-    # instala pese a que ya tenemos la variante headless. Sin libgl1 esa
-    # copia falla al importarse, de modo que hay que dejar una sola.
-    # polars (150 MB) tampoco interviene en inferencia y solo alarga el
-    # arranque en frio.
+    # instala pese a que ya pedimos la variante headless. Ambas comparten el
+    # directorio site-packages/cv2, de modo que desinstalar una deja el
+    # modulo mutilado (falta hasta cv2.IMREAD_COLOR). Por eso se desinstalan
+    # LAS TRES variantes y despues se instala headless desde cero: es la
+    # unica secuencia que garantiza un cv2 integro.
+    # polars (150 MB) no interviene en inferencia y solo alarga el arranque.
     .run_commands(
-        "pip uninstall -y opencv-python opencv-contrib-python || true",
+        "pip uninstall -y opencv-python opencv-contrib-python "
+        "opencv-contrib-python-headless opencv-python-headless || true",
         "pip install --no-cache-dir opencv-python-headless==4.12.0.88",
         "rm -rf /usr/local/lib/python3.11/site-packages/polars "
         "/usr/local/lib/python3.11/site-packages/_polars_runtime_32 || true",
+        # Comprobacion en tiempo de construccion: si cv2 quedo incompleto,
+        # la imagen falla aqui y no en la primera peticion del usuario.
+        "python -c \"import cv2, numpy; "
+        "assert hasattr(cv2, 'IMREAD_COLOR'), 'cv2 incompleto'; "
+        "cv2.imdecode(numpy.zeros((10,), dtype=numpy.uint8), cv2.IMREAD_COLOR); "
+        "print('cv2 verificado:', cv2.__version__)\"",
     )
     .env({
         "PYTHONPATH": "/app",
         "XRAY_MODEL_PATH": f"/app/models/YOLO/{MODELO}",
         # Rutas escribibles: el sistema de archivos del contenedor es de
-        # solo lectura salvo el directorio temporal.
-        "YOLO_CONFIG_DIR": "/tmp/Ultralytics",
+        # solo lectura salvo el directorio temporal. ultralytics anade el
+        # subdirectorio "Ultralytics" por su cuenta, de ahi que se apunte a
+        # la raiz temporal y no a una ruta ya terminada en ese nombre.
+        "YOLO_CONFIG_DIR": "/tmp",
         "MPLCONFIGDIR": "/tmp/matplotlib",
     })
     .workdir("/app")
