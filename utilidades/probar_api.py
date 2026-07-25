@@ -5,12 +5,15 @@ Envia una radiografia, muestra la prediction y guarda el mapa de calor
 recibido, de modo que sirve tanto para verificar un despliegue como para
 generar evidencias graficas.
 
-Ejemplos:
-    # Contra el servicio desplegado en Modal
-    python utilidades/probar_api.py --imagen ruta/a/radiografia.jpg
+La URL del servicio se indica con --url o con la variable de entorno
+XRAY_API_URL. Por defecto apunta al contenedor local.
 
+Ejemplos:
     # Contra el contenedor local
-    python utilidades/probar_api.py --imagen ruta/a/rx.jpg --url http://127.0.0.1:8080
+    python utilidades/probar_api.py --imagen ruta/a/rx.jpg
+
+    # Contra un despliegue en la nube
+    python utilidades/probar_api.py --imagen ruta/a/rx.jpg --url https://TU-DESPLIEGUE
 
     # Midiendo arranque en frio frente a peticiones en caliente
     python utilidades/probar_api.py --imagen ruta/a/rx.jpg --repeticiones 3
@@ -19,12 +22,17 @@ Ejemplos:
 import argparse
 import base64
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
-URL_POR_DEFECTO = "https://manuelocandofaria--clasificacion-binaria-radiologica-api-dev.modal.run"
+# La URL del despliegue no se escribe en el codigo: este repositorio es
+# publico y el servicio se factura por uso, de modo que difundir el endpoint
+# permitiria a terceros consumir el credito de la cuenta. Se toma de la
+# variable de entorno XRAY_API_URL o del parametro --url.
+URL_POR_DEFECTO = os.getenv("XRAY_API_URL", "http://127.0.0.1:8080")
 
 
 def pedir(url: str, ruta_imagen: Path, timeout: int) -> tuple:

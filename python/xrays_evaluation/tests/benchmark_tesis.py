@@ -25,6 +25,7 @@ Uso:
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -44,7 +45,11 @@ MODELOS = {
     "YOLO11x-cls (xlarge)": RAIZ / "models/YOLO/xrays_evaluation_model_xlarge_v1.pt",
 }
 
-DATOS = Path(r"C:\Users\manue\Downloads\data\data")
+# Ubicacion del dataset. No se codifica una ruta local para que el script
+# funcione en cualquier equipo: se indica con la variable de entorno
+# XRAY_DATASET_DIR y, en su defecto, se busca en datasets/ en la raiz del
+# repositorio, que es la convencion declarada en .gitignore.
+DATOS = Path(os.getenv("XRAY_DATASET_DIR", RAIZ.parent.parent / "datasets"))
 BASE_TRAIN = DATOS / "train/ingeniia_services_xrays_evaluation_img_v1.0.0_training_20251121"
 BASE_TEST = DATOS / "test/ingeniia_services_xrays_evaluation_img_v1.0.0_test_20251130"
 

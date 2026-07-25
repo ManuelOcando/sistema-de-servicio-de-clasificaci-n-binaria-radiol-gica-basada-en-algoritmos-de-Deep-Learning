@@ -25,6 +25,7 @@ Uso:
 """
 
 import hashlib
+import os
 from pathlib import Path
 
 import matplotlib
@@ -37,7 +38,8 @@ RAIZ = Path(__file__).resolve().parent.parent
 MODELO = RAIZ / "models/YOLO/xrays_evaluation_model_medium_v1.pt"
 EJEMPLOS = RAIZ / "examples/images"
 
-DATOS = Path(r"C:\Users\manue\Downloads\data\data")
+# Ver nota sobre XRAY_DATASET_DIR en benchmark_tesis.py.
+DATOS = Path(os.getenv("XRAY_DATASET_DIR", RAIZ.parent.parent / "datasets"))
 BASE_TRAIN = DATOS / "train/ingeniia_services_xrays_evaluation_img_v1.0.0_training_20251121"
 ENTRENAMIENTO = BASE_TRAIN / "split_data/train"
 PRUEBA = BASE_TRAIN / "split_data/test"

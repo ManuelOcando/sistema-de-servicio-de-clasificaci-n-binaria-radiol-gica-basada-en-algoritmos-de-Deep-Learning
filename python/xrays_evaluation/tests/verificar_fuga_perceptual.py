@@ -32,13 +32,16 @@ Uso:
 
 import hashlib
 import json
+import os
 import random
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-DATOS = Path(r"C:\Users\manue\Downloads\data\data")
+# Ver nota sobre XRAY_DATASET_DIR en benchmark_tesis.py.
+DATOS = Path(os.getenv("XRAY_DATASET_DIR",
+                       Path(__file__).resolve().parents[3] / "datasets"))
 TR = DATOS / "train/ingeniia_services_xrays_evaluation_img_v1.0.0_training_20251121"
 TE = DATOS / "test/ingeniia_services_xrays_evaluation_img_v1.0.0_test_20251130"
 
