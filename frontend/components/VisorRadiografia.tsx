@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * Visor de radiografia con comparacion y ampliacion.
@@ -79,13 +79,10 @@ export default function VisorRadiografia({
     return () => observador.disconnect();
   }, []);
 
-  // Al cambiar de imagen se vuelve al encuadre inicial.
-  useEffect(() => {
-    setZoom(1);
-    setDesplazamiento({ x: 0, y: 0 });
-    setDivision(50);
-    setExplicacion(esAnomalia);
-  }, [original, esAnomalia]);
+  // El encuadre no se reinicia con un efecto: quien usa este componente le
+  // pasa una `key` distinta en cada analisis, de modo que React lo remonta y
+  // todo el estado vuelve a su valor inicial. Reiniciarlo con setState dentro
+  // de un efecto provocaria renderizados en cascada.
 
   const limitar = useCallback(
     (p: Punto, z: number): Punto => {
@@ -274,7 +271,10 @@ export default function VisorRadiografia({
         className="relative h-[clamp(20rem,52vh,34rem)] touch-none overflow-hidden bg-[var(--lienzo)]"
         style={{ cursor: zoom > 1 ? "grab" : "default" }}
       >
-        {/* Capa base: radiografia original */}
+        {/* Capa base: radiografia original.
+            Se usa <img> y no <Image>: las fuentes son URLs de datos generadas
+            en el navegador, que el optimizador de Next no puede procesar. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={original}
           alt="Radiografía original"
@@ -297,6 +297,7 @@ export default function VisorRadiografia({
             transition: "clip-path 0.3s ease",
           }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={capa === "superpuesta" ? superpuesta : mapa}
             alt="Mapa de atención Grad-CAM"

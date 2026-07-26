@@ -45,6 +45,10 @@ export default function Pagina() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [arrastrando, setArrastrando] = useState(false);
+  // Identificador de análisis. Se usa como `key` del visor para que React lo
+  // remonte con estado limpio en cada análisis, incluso al repetir la misma
+  // imagen. Es la alternativa correcta a reiniciar su estado con un efecto.
+  const [analisisId, setAnalisisId] = useState(0);
   const entradaRef = useRef<HTMLInputElement>(null);
 
   // Se despierta el contenedor al cargar: se apaga tras un minuto sin trafico,
@@ -113,6 +117,7 @@ export default function Pagina() {
         return;
       }
       setResultado(datos as Respuesta);
+      setAnalisisId((n) => n + 1);
       setMomento(
         new Date().toLocaleString("es", {
           dateStyle: "long",
@@ -335,6 +340,7 @@ export default function Pagina() {
             <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
               {/* Visor */}
               <VisorRadiografia
+                key={analisisId}
                 original={imagen}
                 superpuesta={`data:image/jpeg;base64,${resultado.explainability.overlay_base64}`}
                 mapa={`data:image/jpeg;base64,${resultado.explainability.heatmap_base64}`}

@@ -1,0 +1,92 @@
+name: Verificación del sistema
+
+# Construye el servicio, lo levanta y ejecuta contra él la misma suite de
+# aceptación que se usa en local, de modo que ningún cambio pueda romper en
+# silencio la clasificación, el contrato de la respuesta, el Grad-CAM, el
+# manejo de errores o el rechazo de entradas no radiográficas.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  servicio:
+    name: Servicio de inferencia
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Ensamblar el contexto de construcción
+        run: python deploy/hf_space/preparar_space.py
+
+      - name: Construir la imagen
+        run: |
+          docker build \
+            -t xrays-service:ci \
+            -f deploy/hf_space/build/Dockerfile \
+            deploy/hf_space/build
+
+      - name: Levantar el contenedor
+        run: |
+          docker run -d -p 8080:8080 --name xrays-ci xrays-service:ci
+          for i in $(seq 1 60); do
+            if curl -fs http://127.0.0.1:8080/health > /dev/null; then
+              echo "Servicio disponible tras ${i}0 décimas"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "El servicio no respondió a tiempo"
+          docker logs xrays-ci
+          exit 1
+
+      - name: Dependencias de la suite
+        run: pip install --no-cache-dir numpy opencv-python-headless
+
+      - name: Pruebas de aceptación
+        run: python utilidades/verificar_sistema.py --url http://127.0.0.1:8080
+
+      - name: Registro del contenedor
+        if: always()
+        run: docker logs xrays-ci
+
+  interfaz:
+    name: Interfaz web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: frontend
+        run: npm ci
+
+      - name: Análisis estático
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Compilación de producción
+        working-directory: frontend
+        run: npm run build
+        env:
+          # Valor de relleno: la compilación no contacta con el servicio, pero
+          # la variable debe existir para reproducir el entorno de despliegue.
+          XRAY_API_URL: http://localhost:8080
