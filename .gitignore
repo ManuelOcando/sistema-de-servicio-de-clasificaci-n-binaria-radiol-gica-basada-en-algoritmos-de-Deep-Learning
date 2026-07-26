@@ -9,6 +9,13 @@ venv/
 __pycache__/
 .pytest_cache
 
+# El repositorio contiene unicamente la aplicacion. Los documentos del
+# trabajo de grado y las herramientas empleadas para generarlos se conservan
+# fuera de el.
+tesis/
+*.docx
+*.doc
+
 # salidas de utilidades/probar_api.py
 resultado_*_heatmap.jpg
 resultado_*_overlay.jpg
