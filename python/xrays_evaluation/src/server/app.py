@@ -2,8 +2,8 @@ import os
 import sys
 import logging as log
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -41,6 +41,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Tope del cuerpo de la peticion. Se comprueba antes de leerlo para no
+# reservar memoria por una peticion desmesurada: la validacion del esquema
+# llegaria demasiado tarde, cuando el cuerpo ya se recibio entero.
+TAMANO_MAXIMO_PETICION = 15 * 1024 * 1024
+
+
+@app.middleware("http")
+async def limitar_tamano(request: Request, call_next):
+    declarado = request.headers.get("content-length")
+    if declarado and declarado.isdigit() and int(declarado) > TAMANO_MAXIMO_PETICION:
+        log.warning(f"Petición rechazada por tamaño: {int(declarado) / 1024**2:.1f} MB")
+        return JSONResponse(
+            status_code=413,
+            content={
+                "detail": f"La petición supera el máximo de "
+                          f"{TAMANO_MAXIMO_PETICION // 1024**2} MB."
+            },
+        )
+    return await call_next(request)
+
 
 # instance
 cnn_xrays_demo = XRayInferencePipeline()

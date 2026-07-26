@@ -3,6 +3,7 @@ import time
 from src.processing.image_utils.main import ImageUtils
 from src.inference.yolo_classifier import YoloClassifier
 from src.processing.explainability.gradcam import GradCam
+from src.processing import plausibilidad
 
 # Ruta del modelo. Se toma de la variable de entorno XRAY_MODEL_PATH para que
 # el servicio funcione sin cambios en local, en contenedor y en la nube, donde
@@ -30,6 +31,12 @@ class XRayInferencePipeline:
 
         # 1. decode image Imagen
         original_image = self.image_utils.decode_base64(base64_image)
+
+        # 2. Plausibilidad. Debe preceder a la inferencia: el modelo asignaria
+        # una de sus dos clases con alta confianza a cualquier imagen, incluida
+        # una que no sea una radiografia.
+        plausibilidad.revisar(original_image)
+
         t_decoded = time.time()
 
         # 2. inference

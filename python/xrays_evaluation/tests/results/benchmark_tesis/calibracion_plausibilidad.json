@@ -1,0 +1,87 @@
+{
+  "radiografias_reales": {
+    "prueba": {
+      "saturacion": {
+        "minimo": 0.0,
+        "p1": 0.0,
+        "mediana": 0.0,
+        "p99": 0.0,
+        "maximo": 0.0
+      },
+      "desviacion": {
+        "minimo": 27.60897189050085,
+        "p1": 32.41791202023401,
+        "mediana": 57.57711595199757,
+        "p99": 76.6999075572402,
+        "maximo": 86.06203743657511
+      },
+      "entropia": {
+        "minimo": 6.16987419128418,
+        "p1": 6.680714406967163,
+        "mediana": 7.358418941497803,
+        "p99": 7.680950794219971,
+        "maximo": 7.747910499572754
+      }
+    },
+    "benchmarking": {
+      "saturacion": {
+        "minimo": 0.0,
+        "p1": 0.0,
+        "mediana": 0.0,
+        "p99": 0.0,
+        "maximo": 0.0
+      },
+      "desviacion": {
+        "minimo": 26.91932551767009,
+        "p1": 36.84019646938841,
+        "mediana": 59.40273857595072,
+        "p99": 75.78185200845033,
+        "maximo": 77.54214501558045
+      },
+      "entropia": {
+        "minimo": 6.478606224060059,
+        "p1": 6.7072875118255615,
+        "mediana": 7.357429504394531,
+        "p99": 7.662569794654846,
+        "maximo": 7.693528175354004
+      }
+    }
+  },
+  "casos_no_radiograficos": {
+    "Ruido aleatorio a color": {
+      "saturacion": 170.579975,
+      "desviacion": 49.19592323703425,
+      "entropia": 7.626099586486816
+    },
+    "Negro uniforme": {
+      "saturacion": 0.0,
+      "desviacion": 0.0,
+      "entropia": -0.0
+    },
+    "Blanco uniforme": {
+      "saturacion": 0.0,
+      "desviacion": 0.0,
+      "entropia": -0.0
+    },
+    "Degradado de color": {
+      "saturacion": 161.21453125,
+      "desviacion": 13.000183958205483,
+      "entropia": 5.683627605438232
+    },
+    "Formas geometricas": {
+      "saturacion": 55.9383,
+      "desviacion": 69.06505712956445,
+      "entropia": 1.0287517309188843
+    },
+    "Textura gris difusa": {
+      "saturacion": 0.0,
+      "desviacion": 1.3359260598925375,
+      "entropia": 2.464385986328125
+    }
+  },
+  "umbrales": {
+    "saturacion_maxima": 12.0,
+    "desviacion_minima": 13.46,
+    "entropia_minima": 4.32
+  }
+}

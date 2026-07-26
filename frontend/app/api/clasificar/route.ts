@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { identificar, permitir } from "@/lib/limitador";
 
 /**
  * Intermediario entre el navegador y el servicio de inferencia.
@@ -14,6 +15,10 @@ import { NextResponse } from "next/server";
 // encima del limite por defecto de las funciones serverless.
 export const maxDuration = 60;
 
+// Una imagen de 8 MB ocupa unos 10,7 MB en Base64. Se rechaza antes de
+// reenviar para no gastar credito ni memoria del servicio de inferencia.
+const TAMANO_MAXIMO = 12 * 1024 * 1024;
+
 export async function POST(request: Request) {
   const servicio = process.env.XRAY_API_URL;
 
@@ -21,6 +26,27 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { detail: "El servicio de inferencia no esta configurado (falta XRAY_API_URL)." },
       { status: 500 },
+    );
+  }
+
+  // El limite se comprueba lo primero: si se rebasa, ni siquiera se lee el
+  // cuerpo de la peticion.
+  const cliente = identificar(request.headers);
+  const veredicto = permitir(cliente);
+  if (!veredicto.permitido) {
+    return NextResponse.json(
+      {
+        detail: `${veredicto.motivo} Inténtalo de nuevo en ${veredicto.esperarSegundos} segundos.`,
+      },
+      { status: 429, headers: { "Retry-After": String(veredicto.esperarSegundos) } },
+    );
+  }
+
+  const declarado = request.headers.get("content-length");
+  if (declarado && Number(declarado) > TAMANO_MAXIMO) {
+    return NextResponse.json(
+      { detail: `La imagen supera el máximo de ${TAMANO_MAXIMO / 1024 / 1024} MB.` },
+      { status: 413 },
     );
   }
 

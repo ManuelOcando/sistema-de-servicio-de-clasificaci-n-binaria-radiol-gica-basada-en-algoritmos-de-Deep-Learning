@@ -163,8 +163,39 @@ def main():
                                {"image_base64": base64.b64encode(b"no soy una imagen").decode()})
     comprobar("Contenido que no es imagen devuelve 400", estado == 400, f"HTTP {estado}")
 
-    # --- 6. Politica CORS ---
-    print("\n6. Politica CORS")
+    # --- 6. Rechazo de entradas que no son radiografias ---
+    print("\n6. Rechazo de entradas no radiográficas")
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        print("  [OMITIDA] requiere numpy y opencv para generar los casos")
+    else:
+        rng = np.random.default_rng(7)
+        degradado = np.zeros((600, 800, 3), dtype=np.uint8)
+        degradado[:, :, 0] = np.linspace(200, 40, 800)[None, :]
+        degradado[:, :, 1] = np.linspace(120, 190, 600)[:, None]
+        degradado[:, :, 2] = 60
+
+        invalidas = {
+            "ruido a color": rng.integers(0, 255, (600, 600, 3), dtype=np.uint8),
+            "blanco uniforme": np.full((600, 600, 3), 255, dtype=np.uint8),
+            "degradado de color": degradado,
+        }
+
+        for nombre, arreglo in invalidas.items():
+            _, buffer = cv2.imencode(".jpg", arreglo)
+            b64 = base64.b64encode(buffer.tobytes()).decode()
+            estado, cuerpo, _, _ = peticion(url, "/cnn_xray_demo", {"image_base64": b64})
+            detalle = ""
+            if estado == 200:
+                p = json.loads(cuerpo)["prediction"]
+                detalle = f"CLASIFICADA como {p['label']} al {p['confidence'] * 100:.1f}%"
+            comprobar(f"'{nombre}' se rechaza con 400", estado == 400,
+                      detalle or f"HTTP {estado}")
+
+    # --- 7. Politica CORS ---
+    print("\n7. Politica CORS")
     estado, _, cabeceras, _ = peticion(url, "/health",
                                        cabeceras={"Origin": "http://localhost:3000"})
     permitido = cabeceras.get("access-control-allow-origin") or \

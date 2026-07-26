@@ -21,11 +21,22 @@ class PerformanceData(BaseModel):
     model_used: str = Field(..., description="Nombre del modelo utilizado.")
 
 
+# Una imagen de 10 MB ocupa unos 13,4 MB al codificarse en Base64. El limite
+# evita que una peticion desmesurada agote la memoria del contenedor al
+# decodificarla, que es un vector de denegacion de servicio trivial.
+LONGITUD_MAXIMA_BASE64 = 14_000_000
+
+
 class XRayInput(BaseModel):
     """
     structure input.
     """
-    image_base64: str = Field(..., description="Cadena Base64 de la imagen de Rayos X a analizar.")
+    image_base64: str = Field(
+        ...,
+        min_length=1,
+        max_length=LONGITUD_MAXIMA_BASE64,
+        description="Cadena Base64 de la imagen de Rayos X a analizar.",
+    )
 
     model_config = {
         "json_schema_extra": {
