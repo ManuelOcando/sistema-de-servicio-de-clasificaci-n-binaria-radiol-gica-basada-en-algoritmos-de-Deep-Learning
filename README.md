@@ -9,6 +9,12 @@ atención Grad-CAM.
 > sustituye el juicio de un profesional de la salud. Sus resultados no deben emplearse
 > para tomar decisiones clínicas.
 
+**Sistema en funcionamiento:** <https://sistema-de-servicio-de-clasificaci.vercel.app/>
+
+La aplicación incluye radiografías de ejemplo, de modo que puede probarse sin disponer
+de una imagen propia. El servicio de inferencia se detiene tras un minuto sin tráfico
+para no consumir recursos, así que el primer análisis puede tardar unos segundos más.
+
 ---
 
 ## Arquitectura
@@ -114,12 +120,20 @@ Requiere un archivo `.env.local` con la variable documentada en
 
 ### Pruebas de aceptación
 
+Del servicio de inferencia — clasificación, contrato de respuesta, validez del
+Grad-CAM, códigos de error, rechazo de entradas no radiográficas y política CORS:
+
 ```bash
 python utilidades/verificar_sistema.py --url http://localhost:8080
 ```
 
-Verifica clasificación, contrato de respuesta, validez del Grad-CAM, códigos de error,
-rechazo de entradas no radiográficas y política CORS.
+De la interfaz web — disponibilidad, clasificación a través del intermediario,
+propagación de errores, limitador de peticiones y ausencia de la URL del servicio en
+el código servido al navegador:
+
+```bash
+python utilidades/verificar_frontend.py --url http://localhost:3000
+```
 
 ---
 
